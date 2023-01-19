@@ -269,6 +269,7 @@ func QueryRowsMap(db *sql.DB, query string, on_row func(RowMap) error, args ...i
 		defer rows.Close()
 	}
 	if err != nil && err != sql.ErrNoRows {
+		err = wrapErrBadConn(db, err)
 		return log.Errore(err)
 	}
 	err = ScanRowsToMaps(rows, on_row)
@@ -287,6 +288,7 @@ func queryResultData(db *sql.DB, query string, retrieveColumns bool, args ...int
 	rows, err = db.Query(query, args...)
 	defer rows.Close()
 	if err != nil && err != sql.ErrNoRows {
+		err = wrapErrBadConn(db, err)
 		return EmptyResultData, columns, log.Errore(err)
 	}
 	if retrieveColumns {
@@ -341,6 +343,7 @@ func ExecNoPrepare(db *sql.DB, query string, args ...interface{}) (res sql.Resul
 
 	res, err = db.Exec(query, args...)
 	if err != nil {
+		err = wrapErrBadConn(db, err)
 		log.Errore(err)
 	}
 	return res, err
@@ -362,6 +365,7 @@ func execInternal(silent bool, db *sql.DB, query string, args ...interface{}) (r
 	defer stmt.Close()
 	res, err = stmt.Exec(args...)
 	if err != nil && !silent {
+		err = wrapErrBadConn(db, err)
 		log.Errore(err)
 	}
 	return res, err

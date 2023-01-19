@@ -96,6 +96,7 @@ func (mc *mysqlConn) markBadConn(err error) error {
 	if err != errBadConnNoWrite {
 		return err
 	}
+	errLog.Print(driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 	return driver.ErrBadConn
 }
 
@@ -105,7 +106,7 @@ func (mc *mysqlConn) Begin() (driver.Tx, error) {
 
 func (mc *mysqlConn) begin(readOnly bool) (driver.Tx, error) {
 	if mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
+		errLog.Print(ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return nil, driver.ErrBadConn
 	}
 	var q string
@@ -147,7 +148,7 @@ func (mc *mysqlConn) cleanup() {
 		return
 	}
 	if err := mc.netConn.Close(); err != nil {
-		errLog.Print(err)
+		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 	}
 }
 
@@ -163,14 +164,14 @@ func (mc *mysqlConn) error() error {
 
 func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	if mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
+		errLog.Print(ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return nil, driver.ErrBadConn
 	}
 	// Send command
 	err := mc.writeCommandPacketStr(comStmtPrepare, query)
 	if err != nil {
 		// STMT_PREPARE is safe to retry.  So we can return ErrBadConn here.
-		errLog.Print(err)
+		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return nil, driver.ErrBadConn
 	}
 
@@ -204,7 +205,7 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 	buf, err := mc.buf.takeCompleteBuffer()
 	if err != nil {
 		// can not take the buffer. Something must be wrong with the connection
-		errLog.Print(err)
+		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return "", ErrInvalidConn
 	}
 	buf = buf[:0]
@@ -296,7 +297,7 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 
 func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	if mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
+		errLog.Print(ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
@@ -357,7 +358,7 @@ func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, erro
 
 func (mc *mysqlConn) query(query string, args []driver.Value) (*textRows, error) {
 	if mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
+		errLog.Print(ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
@@ -451,7 +452,7 @@ func (mc *mysqlConn) finish() {
 // Ping implements driver.Pinger interface
 func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 	if mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
+		errLog.Print(ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return driver.ErrBadConn
 	}
 
@@ -470,6 +471,7 @@ func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if mc.closed.IsSet() {
+		errLog.Print(driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return nil, driver.ErrBadConn
 	}
 
@@ -637,6 +639,7 @@ func (mc *mysqlConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
 // (From Go 1.10)
 func (mc *mysqlConn) ResetSession(ctx context.Context) error {
 	if mc.closed.IsSet() {
+		errLog.Print(driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return driver.ErrBadConn
 	}
 	mc.reset = true
