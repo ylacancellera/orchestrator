@@ -190,7 +190,7 @@ func (mc *mysqlConn) readHandshakePacket() (data []byte, plugin string, err erro
 		// for init we can rewrite this to ErrBadConn for sql.Driver to retry, since
 		// in connection initialization we don't risk retrying non-idempotent actions.
 		if err == ErrInvalidConn {
-			errLog.Print(driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+			errLog.Print("mc.readPacket, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 			return nil, "", driver.ErrBadConn
 		}
 		return
@@ -324,7 +324,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	data, err := mc.buf.takeSmallBuffer(pktLen + 4)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.buf.takeSmallBuffer(pktLen+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return errBadConnNoWrite
 	}
 
@@ -406,7 +406,7 @@ func (mc *mysqlConn) writeAuthSwitchPacket(authData []byte) error {
 	data, err := mc.buf.takeSmallBuffer(pktLen)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.buf.takeSmallBuffer(pktLen), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return errBadConnNoWrite
 	}
 
@@ -426,7 +426,7 @@ func (mc *mysqlConn) writeCommandPacket(command byte) error {
 	data, err := mc.buf.takeSmallBuffer(4 + 1)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.buf.takeSmallBuffer(4+1), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return errBadConnNoWrite
 	}
 
@@ -445,7 +445,7 @@ func (mc *mysqlConn) writeCommandPacketStr(command byte, arg string) error {
 	data, err := mc.buf.takeBuffer(pktLen + 4)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.buf.takeBuffer(pktLen+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return errBadConnNoWrite
 	}
 
@@ -466,7 +466,7 @@ func (mc *mysqlConn) writeCommandPacketUint32(command byte, arg uint32) error {
 	data, err := mc.buf.takeSmallBuffer(4 + 1 + 4)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.buf.takeSmallBuffer(4+1+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return errBadConnNoWrite
 	}
 
@@ -586,7 +586,7 @@ func (mc *mysqlConn) handleErrorPacket(data []byte) error {
 		// driver.ErrBadConn to ensure that `database/sql` purges this
 		// connection and initiates a new one for next statement next time.
 		mc.Close()
-		errLog.Print(driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.cfg.RejectReadOnly: true, errno:", errno, "error:", driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 		return driver.ErrBadConn
 	}
 
@@ -940,7 +940,12 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 	}
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		if len(args) == 0 {
+			errLog.Print("mc.buf.takeBuffer(minPktLen) failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		} else {
+			errLog.Print("mc.buf.takeCompleteBuffer failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		}
+
 		return errBadConnNoWrite
 	}
 
@@ -1139,7 +1144,7 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 		if valuesCap != cap(paramValues) {
 			data = append(data[:pos], paramValues...)
 			if err = mc.buf.store(data); err != nil {
-				errLog.Print(err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+				errLog.Print("mc.buf.store(data) failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 				return errBadConnNoWrite
 			}
 		}
