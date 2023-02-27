@@ -13,6 +13,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -93,11 +95,12 @@ func (mc *mysqlConn) markBadConn(err error) error {
 	if mc == nil {
 		return err
 	}
-	if err != errBadConnNoWrite {
+	if !errors.Is(err, errBadConnNoWrite) {
 		return err
 	}
-	errLog.Print("markBadConn, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-	return driver.ErrBadConn
+	//errLog.Print("markBadConn, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+	//return driver.ErrBadConn
+	return fmt.Errorf("%w: markBadConn: %v, addr: %s", driver.ErrBadConn, err, mc.cfg.Addr)
 }
 
 func (mc *mysqlConn) Begin() (driver.Tx, error) {
@@ -106,8 +109,8 @@ func (mc *mysqlConn) Begin() (driver.Tx, error) {
 
 func (mc *mysqlConn) begin(readOnly bool) (driver.Tx, error) {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return nil, driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 	var q string
 	if readOnly {
@@ -148,7 +151,7 @@ func (mc *mysqlConn) cleanup() {
 		return
 	}
 	if err := mc.netConn.Close(); err != nil {
-		errLog.Print("mc.netConn.Close() failed, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		errLog.Print("mc.netConn.Close() failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 	}
 }
 
@@ -164,15 +167,15 @@ func (mc *mysqlConn) error() error {
 
 func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return nil, driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 	// Send command
 	err := mc.writeCommandPacketStr(comStmtPrepare, query)
 	if err != nil {
 		// STMT_PREPARE is safe to retry.  So we can return ErrBadConn here.
-		errLog.Print("mc.writeCommandPacketStr failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return nil, driver.ErrBadConn
+		//errLog.Print("mc.writeCommandPacketStr failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	stmt := &mysqlStmt{
@@ -297,8 +300,8 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 
 func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return nil, driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 	if len(args) != 0 {
 		if !mc.cfg.InterpolateParams {
@@ -358,8 +361,8 @@ func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, erro
 
 func (mc *mysqlConn) query(query string, args []driver.Value) (*textRows, error) {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return nil, driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 	if len(args) != 0 {
 		if !mc.cfg.InterpolateParams {
@@ -452,8 +455,8 @@ func (mc *mysqlConn) finish() {
 // Ping implements driver.Pinger interface
 func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	if err = mc.watchCancel(ctx); err != nil {
@@ -471,8 +474,8 @@ func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return nil, driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	if err := mc.watchCancel(ctx); err != nil {
@@ -639,8 +642,8 @@ func (mc *mysqlConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
 // (From Go 1.10)
 func (mc *mysqlConn) ResetSession(ctx context.Context) error {
 	if mc.closed.IsSet() {
-		errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return driver.ErrBadConn
+		//errLog.Print("mc.closed.IsSet() is true, err:", ErrInvalidConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, mc.cfg.Addr, getCurrentFuncName())
 	}
 	mc.reset = true
 	return nil

@@ -28,7 +28,8 @@ func (stmt *mysqlStmt) Close() error {
 		// has to be idempotent.
 		// See also Issue #450 and golang/go#16019.
 		//errLog.Print(ErrInvalidConn)
-		return driver.ErrBadConn
+		//return driver.ErrBadConn
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, stmt.mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	err := stmt.mc.writeCommandPacketUint32(comStmtClose, stmt.id)
@@ -51,8 +52,9 @@ func (stmt *mysqlStmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 
 func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 	if stmt.mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
-		return nil, driver.ErrBadConn
+		//errLog.Print(ErrInvalidConn)
+		//return nil, driver.ErrBadConn
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, stmt.mc.cfg.Addr, getCurrentFuncName())
 	}
 	// Send command
 	err := stmt.writeExecutePacket(args)
@@ -99,8 +101,9 @@ func (stmt *mysqlStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *mysqlStmt) query(args []driver.Value) (*binaryRows, error) {
 	if stmt.mc.closed.IsSet() {
-		errLog.Print(ErrInvalidConn)
-		return nil, driver.ErrBadConn
+		//errLog.Print(ErrInvalidConn)
+		//return nil, driver.ErrBadConn
+		return nil, fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, ErrInvalidConn, stmt.mc.cfg.Addr, getCurrentFuncName())
 	}
 	// Send command
 	err := stmt.writeExecutePacket(args)

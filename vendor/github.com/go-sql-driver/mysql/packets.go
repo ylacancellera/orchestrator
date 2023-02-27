@@ -120,9 +120,9 @@ func (mc *mysqlConn) writePacket(data []byte) error {
 			err = connCheck(conn)
 		}
 		if err != nil {
-			errLog.Print("closing bad idle connection: ", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+			//errLog.Print("closing bad idle connection: ", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 			mc.Close()
-			return driver.ErrBadConn
+			return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", driver.ErrBadConn, err, mc.cfg.Addr, getCurrentFuncName())
 		}
 	}
 
@@ -169,7 +169,8 @@ func (mc *mysqlConn) writePacket(data []byte) error {
 			}
 			if n == 0 && pktLen == len(data)-4 {
 				// only for the first loop iteration when nothing was written yet
-				return errBadConnNoWrite
+				//return errBadConnNoWrite
+				return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 			}
 			mc.cleanup()
 			errLog.Print(err)
@@ -191,7 +192,8 @@ func (mc *mysqlConn) readHandshakePacket() (data []byte, plugin string, err erro
 		// in connection initialization we don't risk retrying non-idempotent actions.
 		if err == ErrInvalidConn {
 			errLog.Print("mc.readPacket, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-			return nil, "", driver.ErrBadConn
+			//return nil, "", driver.ErrBadConn
+			return nil, "", fmt.Errorf("%w: markBadConn: %v, addr: %s", driver.ErrBadConn, err, mc.cfg.Addr)
 		}
 		return
 	}
@@ -324,8 +326,9 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	data, err := mc.buf.takeSmallBuffer(pktLen + 4)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print("mc.buf.takeSmallBuffer(pktLen+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return errBadConnNoWrite
+		//errLog.Print("mc.buf.takeSmallBuffer(pktLen+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		//return errBadConnNoWrite
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	// ClientFlags [32 bit]
@@ -406,8 +409,8 @@ func (mc *mysqlConn) writeAuthSwitchPacket(authData []byte) error {
 	data, err := mc.buf.takeSmallBuffer(pktLen)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print("mc.buf.takeSmallBuffer(pktLen), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return errBadConnNoWrite
+		//errLog.Print("mc.buf.takeSmallBuffer(pktLen), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	// Add the auth data [EOF]
@@ -426,8 +429,8 @@ func (mc *mysqlConn) writeCommandPacket(command byte) error {
 	data, err := mc.buf.takeSmallBuffer(4 + 1)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print("mc.buf.takeSmallBuffer(4+1), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return errBadConnNoWrite
+		//errLog.Print("mc.buf.takeSmallBuffer(4+1), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	// Add command byte
@@ -445,8 +448,8 @@ func (mc *mysqlConn) writeCommandPacketStr(command byte, arg string) error {
 	data, err := mc.buf.takeBuffer(pktLen + 4)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print("mc.buf.takeBuffer(pktLen+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return errBadConnNoWrite
+		//errLog.Print("mc.buf.takeBuffer(pktLen+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	// Add command byte
@@ -466,8 +469,8 @@ func (mc *mysqlConn) writeCommandPacketUint32(command byte, arg uint32) error {
 	data, err := mc.buf.takeSmallBuffer(4 + 1 + 4)
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		errLog.Print("mc.buf.takeSmallBuffer(4+1+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return errBadConnNoWrite
+		//errLog.Print("mc.buf.takeSmallBuffer(4+1+4), err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	// Add command byte
@@ -586,8 +589,8 @@ func (mc *mysqlConn) handleErrorPacket(data []byte) error {
 		// driver.ErrBadConn to ensure that `database/sql` purges this
 		// connection and initiates a new one for next statement next time.
 		mc.Close()
-		errLog.Print("mc.cfg.RejectReadOnly: true, errno:", errno, "error:", driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return driver.ErrBadConn
+		//	errLog.Print("mc.cfg.RejectReadOnly: true, errno:", errno, "error:", driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+		return fmt.Errorf("%w: error packet: %v, addr: %s", driver.ErrBadConn, errno, mc.cfg.Addr)
 	}
 
 	pos := 3
@@ -940,13 +943,14 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 	}
 	if err != nil {
 		// cannot take the buffer. Something must be wrong with the connection
-		if len(args) == 0 {
-			errLog.Print("mc.buf.takeBuffer(minPktLen) failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		} else {
-			errLog.Print("mc.buf.takeCompleteBuffer failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		}
-
-		return errBadConnNoWrite
+		/*
+			if len(args) == 0 {
+				errLog.Print("mc.buf.takeBuffer(minPktLen) failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+			} else {
+				errLog.Print("mc.buf.takeCompleteBuffer failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+			}
+		*/
+		return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	// command [1 byte]
@@ -1144,8 +1148,8 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 		if valuesCap != cap(paramValues) {
 			data = append(data[:pos], paramValues...)
 			if err = mc.buf.store(data); err != nil {
-				errLog.Print("mc.buf.store(data) failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-				return errBadConnNoWrite
+				//		errLog.Print("mc.buf.store(data) failed, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+				return fmt.Errorf("%w: closing bad idle connection: %v, addr: %s, func: %s", errBadConnNoWrite, err, mc.cfg.Addr, getCurrentFuncName())
 			}
 		}
 
