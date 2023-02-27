@@ -191,9 +191,9 @@ func (mc *mysqlConn) readHandshakePacket() (data []byte, plugin string, err erro
 		// for init we can rewrite this to ErrBadConn for sql.Driver to retry, since
 		// in connection initialization we don't risk retrying non-idempotent actions.
 		if err == ErrInvalidConn {
-			errLog.Print("mc.readPacket, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
+			//errLog.Print("mc.readPacket, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 			//return nil, "", driver.ErrBadConn
-			return nil, "", fmt.Errorf("%w: markBadConn: %v, addr: %s", driver.ErrBadConn, err, mc.cfg.Addr)
+			return nil, "", fmt.Errorf("%w: markBadConn: %v, addr: %s, func: %s", driver.ErrBadConn, err, mc.cfg.Addr, getCurrentFuncName())
 		}
 		return
 	}
@@ -590,7 +590,7 @@ func (mc *mysqlConn) handleErrorPacket(data []byte) error {
 		// connection and initiates a new one for next statement next time.
 		mc.Close()
 		//	errLog.Print("mc.cfg.RejectReadOnly: true, errno:", errno, "error:", driver.ErrBadConn, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
-		return fmt.Errorf("%w: error packet: %v, addr: %s", driver.ErrBadConn, errno, mc.cfg.Addr)
+		return fmt.Errorf("%w: error packet: %v, addr: %s, func: %s", driver.ErrBadConn, errno, mc.cfg.Addr, getCurrentFuncName())
 	}
 
 	pos := 3

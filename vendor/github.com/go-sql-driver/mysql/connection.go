@@ -100,7 +100,7 @@ func (mc *mysqlConn) markBadConn(err error) error {
 	}
 	//errLog.Print("markBadConn, err:", err, ", addr:", mc.cfg.Addr, ", func:", getCurrentFuncName())
 	//return driver.ErrBadConn
-	return fmt.Errorf("%w: markBadConn: %v, addr: %s", driver.ErrBadConn, err, mc.cfg.Addr)
+	return fmt.Errorf("%w: markBadConn: %v, addr: %s, func: %s", driver.ErrBadConn, err, mc.cfg.Addr, getCurrentFuncName())
 }
 
 func (mc *mysqlConn) Begin() (driver.Tx, error) {
